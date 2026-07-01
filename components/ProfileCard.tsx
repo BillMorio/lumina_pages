@@ -26,8 +26,12 @@ function monogram(name: string) {
 }
 function timeAgo(iso: string | null) {
   if (!iso) return "never"
-  const d = (Date.now() - new Date(iso.replace(" ", "T") + "Z").getTime()) / 1000
-  if (d < 60) return "just now"
+  // last_used_at is a full ISO string (…T…Z); created_at is SQLite "YYYY-MM-DD HH:MM:SS" (UTC).
+  const norm = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z"
+  const t = new Date(norm).getTime()
+  if (Number.isNaN(t)) return "—"
+  const d = (Date.now() - t) / 1000
+  if (d < 45) return "just now"
   if (d < 3600) return `${Math.floor(d / 60)}m ago`
   if (d < 86400) return `${Math.floor(d / 3600)}h ago`
   return `${Math.floor(d / 86400)}d ago`
