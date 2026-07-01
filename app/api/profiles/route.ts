@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server"
 import { listProfiles, createProfile } from "@/lib/engine/store"
 import { runningIds } from "@/lib/engine/manager"
+import { platformsWithCookies } from "@/lib/engine/cookies"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
   const live = new Set(runningIds())
-  const profiles = listProfiles().map((p) => ({ ...p, running: live.has(p.id) }))
+  const profiles = listProfiles().map((p) => ({
+    ...p,
+    running: live.has(p.id),
+    sessions: platformsWithCookies(p.id),
+  }))
   return NextResponse.json({ profiles })
 }
 

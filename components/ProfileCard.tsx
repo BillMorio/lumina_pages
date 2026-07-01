@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Play, Square, Trash2, Globe, Fingerprint, Clock, ChevronUp } from "lucide-react"
+import { Play, Square, Trash2, Globe, Fingerprint, Clock, ChevronUp, Pencil, KeyRound } from "lucide-react"
 import { PLATFORMS, platformColor, platformLabel } from "@/lib/platforms"
 
 export type Profile = {
@@ -11,10 +11,13 @@ export type Profile = {
   platform: string
   fingerprint_preset: string
   proxy_server: string | null
+  proxy_username?: string | null
+  proxy_password?: string | null
   timezone_override: string | null
   status: string
   last_used_at: string | null
   running: boolean
+  sessions?: string[]
 }
 
 function monogram(name: string) {
@@ -31,17 +34,20 @@ function timeAgo(iso: string | null) {
 }
 
 export default function ProfileCard({
-  p, busy, onLaunch, onStop, onDelete,
+  p, busy, onLaunch, onStop, onDelete, onEdit, onCookies,
 }: {
   p: Profile
   busy: boolean
   onLaunch: (id: number, platform: string) => void
   onStop: (id: number) => void
   onDelete: (id: number) => void
+  onEdit: (p: Profile) => void
+  onCookies: (p: Profile) => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const accent = platformColor(p.platform)
+  const sessions = p.sessions ?? []
 
   useEffect(() => {
     if (!open) return
@@ -80,6 +86,14 @@ export default function ProfileCard({
           <span className="v">{p.fingerprint_preset}{p.timezone_override ? ` · ${p.timezone_override.split("/").pop()}` : ""}</span>
         </div>
         <div className="meta-row">
+          <KeyRound className="ic" size={14} />
+          <span className="k">Sessions</span>
+          <span className="v" style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+            {sessions.length === 0 ? <span style={{ color: "var(--text-3)" }}>none imported</span>
+              : sessions.map((s) => <span key={s} className="pdot" title={s} style={{ background: platformColor(s), width: 9, height: 9 }} />)}
+          </span>
+        </div>
+        <div className="meta-row">
           <Clock className="ic" size={14} />
           <span className="k">Last used</span>
           <span className="v">{timeAgo(p.last_used_at)}</span>
@@ -103,6 +117,7 @@ export default function ProfileCard({
                   <div key={pl.key} className="pop-item" onClick={() => { setOpen(false); onLaunch(p.id, pl.key) }}>
                     <span className="pdot" style={{ background: pl.color }} />
                     {pl.label}
+                    {sessions.includes(pl.key) && <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--green)" }}>logged in</span>}
                   </div>
                 ))}
               </div>
@@ -110,9 +125,9 @@ export default function ProfileCard({
           </div>
         )}
         <div className="spacer" />
-        <button className="btn icon sm danger" title="Delete" disabled={busy || p.running} onClick={() => onDelete(p.id)}>
-          <Trash2 size={15} />
-        </button>
+        <button className="btn icon sm" title="Sessions / cookies" disabled={busy} onClick={() => onCookies(p)}><KeyRound size={15} /></button>
+        <button className="btn icon sm" title="Edit" disabled={busy || p.running} onClick={() => onEdit(p)}><Pencil size={15} /></button>
+        <button className="btn icon sm danger" title="Delete" disabled={busy || p.running} onClick={() => onDelete(p.id)}><Trash2 size={15} /></button>
       </div>
     </div>
   )

@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback } from "react"
 import { Plus, Users } from "lucide-react"
 import ProfileCard, { type Profile } from "@/components/ProfileCard"
-import NewProfileModal from "@/components/NewProfileModal"
+import ProfileModal, { type EditProfile } from "@/components/ProfileModal"
+import CookiesModal from "@/components/CookiesModal"
 
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<EditProfile | null | undefined>(undefined) // undefined=closed, null=create, obj=edit
+  const [cookiesFor, setCookiesFor] = useState<Profile | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -57,7 +59,7 @@ export default function ProfilesPage() {
           <h1>Profiles</h1>
           <div className="subtitle">Create, warm, and run your account identities — each on its own stealth fingerprint + proxy.</div>
         </div>
-        <button className="btn primary" onClick={() => setShowModal(true)}>
+        <button className="btn primary" onClick={() => setEditing(null)}>
           <Plus size={16} /> New profile
         </button>
       </div>
@@ -77,18 +79,28 @@ export default function ProfilesPage() {
             <p style={{ maxWidth: 360, margin: "0 auto 18px" }}>
               A profile is one account identity — a stealth browser pinned to a fingerprint and proxy, with its own persistent session.
             </p>
-            <button className="btn primary" onClick={() => setShowModal(true)}><Plus size={16} /> Create your first profile</button>
+            <button className="btn primary" onClick={() => setEditing(null)}><Plus size={16} /> Create your first profile</button>
           </div>
         ) : (
           <div className="grid">
             {profiles.map((p) => (
-              <ProfileCard key={p.id} p={p} busy={busy === p.id} onLaunch={launch} onStop={stop} onDelete={remove} />
+              <ProfileCard
+                key={p.id} p={p} busy={busy === p.id}
+                onLaunch={launch} onStop={stop} onDelete={remove}
+                onEdit={(pr) => setEditing(pr as EditProfile)}
+                onCookies={(pr) => setCookiesFor(pr)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {showModal && <NewProfileModal onClose={() => setShowModal(false)} onCreated={load} />}
+      {editing !== undefined && (
+        <ProfileModal profile={editing} onClose={() => setEditing(undefined)} onSaved={load} />
+      )}
+      {cookiesFor && (
+        <CookiesModal profile={cookiesFor} onClose={() => setCookiesFor(null)} onSaved={load} />
+      )}
       {error && <div className="toast">{error}</div>}
     </>
   )

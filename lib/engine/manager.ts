@@ -12,6 +12,7 @@ import path from "node:path"
 import fs from "node:fs"
 import { getProfile, updateProfile, profileDir, listProfiles } from "./store"
 import { resolveFingerprint } from "./fingerprints"
+import { cookiesForLaunch } from "./cookies"
 
 const RUNNER = path.join(process.cwd(), "lib", "engine", "runner.mjs")
 
@@ -48,10 +49,14 @@ export function launchProfile(id: number, platformOverride?: string): { ok: bool
   if (profile.timezone_override) fp.timezoneId = profile.timezone_override
 
   const dir = profileDir(id)
+  const platform = platformOverride || profile.platform
   const cfg = {
     id: profile.id,
     name: profile.name,
-    platform: platformOverride || profile.platform, // launch picks which platform to open
+    platform, // launch picks which platform to open
+    // Inject the warmed session for this platform, if one was imported, so the
+    // profile lands already logged in.
+    cookies: cookiesForLaunch(id, platform),
 
     fingerprint: fp,
     proxy: profile.proxy_server

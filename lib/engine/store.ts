@@ -117,11 +117,10 @@ export function updateProfile(id: number, patch: Partial<ProfileInput> & { statu
   // Values are DB-safe scalars (string | number | null); typed loose for node:sqlite's run() overload.
   const params: Record<string, string | number | bigint | null> = { id }
   for (const key of allowed) {
-    if (key in patch) {
-      const v = (patch as Record<string, unknown>)[key]
-      sets.push(`${key} = @${key}`)
-      params[key] = (v ?? null) as string | number | bigint | null
-    }
+    const v = (patch as Record<string, unknown>)[key]
+    if (v === undefined) continue // not provided -> leave column untouched (partial update)
+    sets.push(`${key} = @${key}`)
+    params[key] = v as string | number | bigint | null
   }
   if (sets.length) db().prepare(`UPDATE profiles SET ${sets.join(", ")} WHERE id = @id`).run(params)
   return getProfile(id)
