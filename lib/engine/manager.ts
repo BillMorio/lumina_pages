@@ -39,7 +39,7 @@ export function runningIds(): number[] {
   return listProfiles().filter((p) => p.pid && isRunning(p.id)).map((p) => p.id)
 }
 
-export function launchProfile(id: number): { ok: boolean; error?: string } {
+export function launchProfile(id: number, platformOverride?: string): { ok: boolean; error?: string } {
   if (isRunning(id)) return { ok: false, error: "Profile is already running" }
   const profile = getProfile(id)
   if (!profile) return { ok: false, error: "Profile not found" }
@@ -51,7 +51,8 @@ export function launchProfile(id: number): { ok: boolean; error?: string } {
   const cfg = {
     id: profile.id,
     name: profile.name,
-    platform: profile.platform,
+    platform: platformOverride || profile.platform, // launch picks which platform to open
+
     fingerprint: fp,
     proxy: profile.proxy_server
       ? { server: profile.proxy_server, username: profile.proxy_username, password: profile.proxy_password }
