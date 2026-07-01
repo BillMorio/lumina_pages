@@ -1,0 +1,22 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# LOCAL DATA — contains proxy credentials, account sessions/cookies, the SQLite
+# DB, and per-profile browser user-data-dirs. NEVER commit this.
+/data/
+
+# env / secrets
+.env
+.env*.local
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
