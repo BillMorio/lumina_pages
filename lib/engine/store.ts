@@ -28,6 +28,7 @@ export type Profile = {
   timezone_override: string | null
   notes: string | null
   status: string // "idle" | "running"
+  pid: number | null // OS pid of the running browser runner (source of truth for stop/status)
   created_at: string
   last_used_at: string | null
 }
@@ -63,10 +64,17 @@ function db(): DatabaseSync {
       timezone_override TEXT,
       notes TEXT,
       status TEXT NOT NULL DEFAULT 'idle',
+      pid INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_used_at TEXT
     );
   `)
+  // Migration for DBs created before the pid column existed.
+  try {
+    _db.exec("ALTER TABLE profiles ADD COLUMN pid INTEGER;")
+  } catch {
+    /* column already exists */
+  }
   return _db
 }
 
@@ -98,12 +106,12 @@ export function createProfile(input: ProfileInput): Profile {
   return getProfile(Number(info.lastInsertRowid))!
 }
 
-export function updateProfile(id: number, patch: Partial<ProfileInput> & { status?: string; last_used_at?: string }): Profile | undefined {
+export function updateProfile(id: number, patch: Partial<ProfileInput> & { status?: string; last_used_at?: string; pid?: number | null }): Profile | undefined {
   const existing = getProfile(id)
   if (!existing) return undefined
   const allowed = [
     "name", "niche", "platform", "fingerprint_preset", "proxy_server",
-    "proxy_username", "proxy_password", "timezone_override", "notes", "status", "last_used_at",
+    "proxy_username", "proxy_password", "timezone_override", "notes", "status", "last_used_at", "pid",
   ] as const
   const sets: string[] = []
   // Values are DB-safe scalars (string | number | null); typed loose for node:sqlite's run() overload.
