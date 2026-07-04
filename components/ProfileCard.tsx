@@ -1,23 +1,34 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Play, Square, Trash2, Globe, Fingerprint, Clock, ChevronUp, Pencil, KeyRound } from "lucide-react"
-import { PLATFORMS, platformColor, platformLabel } from "@/lib/platforms"
+import { Play, Square, Trash2, Globe, Fingerprint, Pencil, KeyRound, Plus, AlertTriangle } from "lucide-react"
+import PlatformIcon from "./PlatformIcon"
+import { PLATFORMS, MAX_ACCOUNTS_PER_PLATFORM, platformColor } from "@/lib/platforms"
+
+export type AccountView = {
+  id: number
+  profile_id: number
+  platform: string
+  username: string
+  password?: string | null
+  email?: string | null
+  twofa?: string | null
+  notes?: string | null
+  status: string
+  last_used_at: string | null
+  running: boolean
+  hasCookies: boolean
+}
 
 export type Profile = {
   id: number
   name: string
   niche: string | null
-  platform: string
   fingerprint_preset: string
   proxy_server: string | null
   proxy_username?: string | null
   proxy_password?: string | null
   timezone_override: string | null
-  status: string
-  last_used_at: string | null
-  running: boolean
-  sessions?: string[]
+  accounts: AccountView[]
 }
 
 function monogram(name: string) {
@@ -38,100 +49,132 @@ function timeAgo(iso: string | null) {
 }
 
 export default function ProfileCard({
-  p, busy, onLaunch, onStop, onDelete, onEdit, onCookies,
+  p, busy, onLaunchAccount, onStopAccount, onDeleteAccount, onEditAccount, onAccountCookies, onAddAccount, onEditProfile, onDeleteProfile,
 }: {
   p: Profile
   busy: boolean
-  onLaunch: (id: number, platform: string) => void
-  onStop: (id: number) => void
-  onDelete: (id: number) => void
-  onEdit: (p: Profile) => void
-  onCookies: (p: Profile) => void
+  onLaunchAccount: (accountId: number) => void
+  onStopAccount: (accountId: number) => void
+  onDeleteAccount: (a: AccountView) => void
+  onEditAccount: (a: AccountView) => void
+  onAccountCookies: (a: AccountView) => void
+  onAddAccount: (p: Profile) => void
+  onEditProfile: (p: Profile) => void
+  onDeleteProfile: (p: Profile) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const accent = platformColor(p.platform)
-  const sessions = p.sessions ?? []
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [open])
+  const accounts = p.accounts ?? []
+  const runningCount = accounts.filter((a) => a.running).length
+  const groups = PLATFORMS.map((pl) => ({ platform: pl, accounts: accounts.filter((a) => a.platform === pl.key) })).filter((g) => g.accounts.length > 0)
+  const atFullCapacity = groups.length > 0 && groups.every((g) => g.accounts.length >= MAX_ACCOUNTS_PER_PLATFORM)
 
   return (
-    <div className="card">
-      <div className="card-top">
-        <div className="avatar" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}99)` }}>
+    <div className="cluster">
+      <div className="cluster-head">
+        <div className="avatar cluster-avatar" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-hi))" }}>
           {monogram(p.name)}
         </div>
-        <div className="card-id">
-          <div className="card-name">{p.name}</div>
-          <div className="card-sub">{platformLabel(p.platform)}{p.niche ? ` · ${p.niche}` : ""}</div>
+        <div className="cluster-id">
+          <div className="cluster-name">
+            {p.name}
+            {p.niche && <span className="cluster-niche"> · {p.niche}</span>}
+          </div>
+          <div className="cluster-meta">
+            <span className={p.proxy_server ? "" : "warn"}>
+              <Globe size={12} /> {p.proxy_server ? p.proxy_server.replace(/^https?:\/\//, "") : "home IP (no proxy)"}
+            </span>
+            <span>
+              <Fingerprint size={12} /> {p.fingerprint_preset}{p.timezone_override ? ` · ${p.timezone_override.split("/").pop()}` : ""}
+            </span>
+          </div>
         </div>
-        <span className={`status-pill ${p.running ? "running" : "idle"}`}>
-          <span className={`dot ${p.running ? "live" : ""}`} />
-          {p.running ? "Running" : "Idle"}
+        {accounts.length > 1 && (
+          <span className="cluster-warn" title="Platforms can link accounts that share an IP or fingerprint, even with separate sessions.">
+            <AlertTriangle size={12} /> {accounts.length} accounts on 1 IP
+          </span>
+        )}
+        <div className="cluster-actions">
+          <button className="btn icon sm" title="Edit profile" disabled={busy} onClick={() => onEditProfile(p)}><Pencil size={14} /></button>
+          <button className="btn icon sm danger" title="Delete profile" disabled={busy || runningCount > 0} onClick={() => onDeleteProfile(p)}><Trash2 size={14} /></button>
+        </div>
+      </div>
+
+      <div className="cluster-body">
+        {groups.length === 0 && <div className="acct-empty">No accounts linked to this IP yet</div>}
+        {groups.map((g) => (
+          <div key={g.platform.key} className="platform-group">
+            <div className="platform-group-head">
+              <PlatformIcon platform={g.platform.key} size={13} />
+              {g.platform.label}
+              <span className={`platform-count ${g.accounts.length >= MAX_ACCOUNTS_PER_PLATFORM ? "full" : ""}`}>
+                {g.accounts.length}/{MAX_ACCOUNTS_PER_PLATFORM}
+              </span>
+            </div>
+            <div className="acct-grid">
+              {g.accounts.map((a) => (
+                <AccountCard
+                  key={a.id} a={a} busy={busy}
+                  onLaunch={() => onLaunchAccount(a.id)}
+                  onStop={() => onStopAccount(a.id)}
+                  onDelete={() => onDeleteAccount(a)}
+                  onEdit={() => onEditAccount(a)}
+                  onCookies={() => onAccountCookies(a)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+        {!atFullCapacity && (
+          <button className="acct-card-add" disabled={busy} onClick={() => onAddAccount(p)}>
+            <Plus size={16} />
+            <span>Add account</span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AccountCard({
+  a, busy, onLaunch, onStop, onDelete, onEdit, onCookies,
+}: {
+  a: AccountView
+  busy: boolean
+  onLaunch: () => void
+  onStop: () => void
+  onDelete: () => void
+  onEdit: () => void
+  onCookies: () => void
+}) {
+  const accent = platformColor(a.platform)
+
+  return (
+    <div className="acct-card">
+      <div className="acct-card-top">
+        <div className="acct-avatar" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}99)` }}>
+          {monogram(a.username)}
+        </div>
+        <div className="acct-card-id">
+          <div className="acct-card-user" title={`@${a.username}`}>@{a.username}</div>
+          <div className="acct-card-sub">
+            {a.hasCookies && <span className="acct-logged-in" title="Session imported">● session</span>}
+            {!a.hasCookies && <span>{a.running ? "running" : `used ${timeAgo(a.last_used_at)}`}</span>}
+          </div>
+        </div>
+        <span className={`status-pill xs ${a.running ? "running" : "idle"}`} title={a.running ? "Running" : "Idle"}>
+          <span className={`dot ${a.running ? "live" : ""}`} />
         </span>
       </div>
-
-      <div className="meta-list">
-        <div className="meta-row">
-          <Globe className="ic" size={14} />
-          <span className="k">Proxy</span>
-          <span className={`v ${p.proxy_server ? "" : "warn"}`}>
-            {p.proxy_server ? p.proxy_server.replace(/^https?:\/\//, "") : "home IP (no proxy)"}
-          </span>
-        </div>
-        <div className="meta-row">
-          <Fingerprint className="ic" size={14} />
-          <span className="k">Fingerprint</span>
-          <span className="v">{p.fingerprint_preset}{p.timezone_override ? ` · ${p.timezone_override.split("/").pop()}` : ""}</span>
-        </div>
-        <div className="meta-row">
-          <KeyRound className="ic" size={14} />
-          <span className="k">Sessions</span>
-          <span className="v" style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-            {sessions.length === 0 ? <span style={{ color: "var(--text-3)" }}>none imported</span>
-              : sessions.map((s) => <span key={s} className="pdot" title={s} style={{ background: platformColor(s), width: 9, height: 9 }} />)}
-          </span>
-        </div>
-        <div className="meta-row">
-          <Clock className="ic" size={14} />
-          <span className="k">Last used</span>
-          <span className="v">{timeAgo(p.last_used_at)}</span>
-        </div>
-      </div>
-
-      <div className="card-actions">
-        {p.running ? (
-          <button className="btn danger sm" disabled={busy} onClick={() => onStop(p.id)}>
-            <Square size={14} /> Stop
-          </button>
+      <div className="acct-card-actions">
+        {a.running ? (
+          <button className="btn danger sm" disabled={busy} onClick={onStop}><Square size={12} /> Stop</button>
         ) : (
-          <div className="pop-wrap" ref={ref}>
-            <button className="btn primary sm" disabled={busy} onClick={() => setOpen((o) => !o)}>
-              <Play size={14} /> Launch <ChevronUp size={13} style={{ opacity: 0.8 }} />
-            </button>
-            {open && (
-              <div className="popover">
-                <div className="pop-title">Open which platform?</div>
-                {PLATFORMS.map((pl) => (
-                  <div key={pl.key} className="pop-item" onClick={() => { setOpen(false); onLaunch(p.id, pl.key) }}>
-                    <span className="pdot" style={{ background: pl.color }} />
-                    {pl.label}
-                    {sessions.includes(pl.key) && <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--green)" }}>logged in</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <button className="btn primary sm" disabled={busy} onClick={onLaunch}><Play size={12} /> Launch</button>
         )}
-        <div className="spacer" />
-        <button className="btn icon sm" title="Sessions / cookies" disabled={busy} onClick={() => onCookies(p)}><KeyRound size={15} /></button>
-        <button className="btn icon sm" title="Edit" disabled={busy || p.running} onClick={() => onEdit(p)}><Pencil size={15} /></button>
-        <button className="btn icon sm danger" title="Delete" disabled={busy || p.running} onClick={() => onDelete(p.id)}><Trash2 size={15} /></button>
+      </div>
+      <div className="acct-card-icons">
+        <button className="btn icon xs" title="Session / cookies" disabled={busy} onClick={onCookies}><KeyRound size={12} /></button>
+        <button className="btn icon xs" title="Edit account" disabled={busy || a.running} onClick={onEdit}><Pencil size={12} /></button>
+        <button className="btn icon xs danger" title="Delete account" disabled={busy || a.running} onClick={onDelete}><Trash2 size={12} /></button>
       </div>
     </div>
   )

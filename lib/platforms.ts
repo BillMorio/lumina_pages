@@ -12,6 +12,10 @@ export const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
 
 export const PLATFORM_MAP = Object.fromEntries(PLATFORMS.map((p) => [p.key, p])) as Record<PlatformKey, (typeof PLATFORMS)[number]>
 
+// A platform gets "linked" by the host app once too many of its accounts share
+// one IP/fingerprint — cap accounts per platform per profile, not just total.
+export const MAX_ACCOUNTS_PER_PLATFORM = 3
+
 export function platformColor(key: string): string {
   return PLATFORM_MAP[key as PlatformKey]?.color ?? "#6366f1"
 }
