@@ -280,6 +280,12 @@ select { appearance: none; background-image: url("data:image/svg+xml;utf8,<svg x
 
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--elev); border: 1px solid var(--red); color: var(--red); padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; z-index: 60; box-shadow: var(--shadow); }
 
+.conn-banner {
+  background: var(--red-soft); border: 1px solid rgba(248, 113, 113, 0.35); color: var(--red);
+  padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+  margin-bottom: 20px; line-height: 1.5;
+}
+
 /* ── Login / setup ─────────────────────────────────────────── */
 .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
 .auth-card {

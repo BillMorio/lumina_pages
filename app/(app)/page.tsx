@@ -21,12 +21,22 @@ export default function ProfilesPage() {
   const [loaded, setLoaded] = useState(false)
   const [query, setQuery] = useState("")
   const [platformTab, setPlatformTab] = useState("all")
+  const [connError, setConnError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const r = await fetch("/api/profiles", { cache: "no-store" })
-    const d = await r.json()
-    setProfiles(d.profiles || [])
-    setLoaded(true)
+    try {
+      const r = await fetch("/api/profiles", { cache: "no-store" })
+      if (!r.ok) throw new Error(`Server responded ${r.status}`)
+      const d = await r.json()
+      setProfiles(d.profiles || [])
+      setConnError(null)
+    } catch (e) {
+      // A failed poll used to fail silently — the page just looked blank or
+      // frozen on stale data with no indication why. Surface it instead.
+      setConnError("Can't reach the server or database right now. Check your internet connection, and check this app's Terminal window for errors.")
+    } finally {
+      setLoaded(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -84,19 +94,23 @@ export default function ProfilesPage() {
     return counts
   }, [profiles])
 
+  const isFiltering = query.trim().length > 0 || platformTab !== "all"
+
   const visibleProfiles = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return profiles
-      .map((p) => {
-        let accounts = platformTab === "all" ? p.accounts : p.accounts.filter((a) => a.platform === platformTab)
-        if (q) {
-          const profileMatches = p.name.toLowerCase().includes(q) || (p.niche || "").toLowerCase().includes(q)
-          if (!profileMatches) accounts = accounts.filter((a) => a.username.toLowerCase().includes(q) || platformLabel(a.platform).toLowerCase().includes(q))
-        }
-        return { ...p, accounts }
-      })
-      .filter((p) => p.accounts.length > 0)
-  }, [profiles, query, platformTab])
+    const filtered = profiles.map((p) => {
+      let accounts = platformTab === "all" ? p.accounts : p.accounts.filter((a) => a.platform === platformTab)
+      if (q) {
+        const profileMatches = p.name.toLowerCase().includes(q) || (p.niche || "").toLowerCase().includes(q)
+        if (!profileMatches) accounts = accounts.filter((a) => a.username.toLowerCase().includes(q) || platformLabel(a.platform).toLowerCase().includes(q))
+      }
+      return { ...p, accounts }
+    })
+    // Only hide empty-after-filter profiles while actively searching/filtering —
+    // otherwise a profile with zero accounts (e.g. right after its last account
+    // was deleted) would vanish entirely, with no way to add a new one to it.
+    return isFiltering ? filtered.filter((p) => p.accounts.length > 0) : filtered
+  }, [profiles, query, platformTab, isFiltering])
 
   return (
     <>
@@ -111,6 +125,8 @@ export default function ProfilesPage() {
       </div>
 
       <div className="content">
+        {connError && <div className="conn-banner">{connError}</div>}
+
         {loaded && profiles.length > 0 && (
           <>
             <div className="stat-row">
@@ -136,7 +152,7 @@ export default function ProfilesPage() {
           </>
         )}
 
-        {loaded && profiles.length === 0 ? (
+        {connError ? null : loaded && profiles.length === 0 ? (
           <div className="empty">
             <Users className="ic" size={34} />
             <h3>No profiles yet</h3>
